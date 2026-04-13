@@ -2,14 +2,18 @@
 
 Convert between Markdown, TXT, PDF, and DOCX files. Serverless, no database, no build step.
 
+**Live:** https://file-conv.vercel.app
+
 ## Features
 
-- **MD → TXT** — Strips all Markdown syntax
-- **MD → PDF** — Client-side generation
-- **MD → DOCX** — Preserves headings, lists, code blocks
-- **TXT → MD** — Auto-detects structure (headings, lists)
-- **PDF → MD** — Text extraction
-- **DOCX → MD** — Full formatting conversion
+| Conversion | Description |
+|---|---|
+| MD → TXT | Strips all Markdown syntax |
+| MD → PDF | Client-side generation |
+| MD → DOCX | Preserves headings, lists, code blocks |
+| TXT → MD | Auto-detects structure |
+| PDF → MD | Text extraction |
+| DOCX → MD | Full formatting conversion |
 
 ## Deploy
 
@@ -36,4 +40,3 @@ npx vercel dev
 ## Limits
 
 - Max file size: 10 MB
-- All processing happens server-side (except PDF generation)
