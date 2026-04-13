@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FileConv — Format Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<!-- jsPDF for client-side PDF generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0c0c0c;
+  --surface:  #141414;
+  --panel:    #1a1a1a;
+  --border:   #2a2a2a;
+  --accent:   #c8f55a;
+  --accent2:  #ff6640;
+  --text:     #e6e6e0;
+  --muted:    #666660;
+  --success:  #52d68a;
+  --error:    #ff5a5a;
+  --mono:     'Space Mono', monospace;
+  --sans:     'DM Sans', sans-serif;
+  --r:        3px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* Grid lines background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.wrap {
+  position: relative;
+  z-index: 1;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+/* ── Header ── */
+header {
+  padding: 36px 0 28px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  font-family: var(--mono);
+}
+
+.brand-sub {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.brand-name {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.brand-name em {
+  color: var(--accent);
+  font-style: normal;
+}
+
+.chip {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 5px 10px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+/* ── Format selector ── */
+.format-row {
+  margin-top: 32px;
+  display: grid;
+  grid-template-columns: 1fr 48px 1fr;
+  gap: 8px;
+  align-items: end;
+}
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.sel-wrap { position: relative; }
+
+.sel-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+select {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 12px 36px 12px 14px;
+  border-radius: var(--r);
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+select:focus { border-color: var(--accent); }
+
+.arrow-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 2px;
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--accent2);
+  user-select: none;
+}
+
+/* ── Drop zone ── */
+.upload-area { margin-top: 24px; }
+
+.drop-zone {
+  position: relative;
+  background: var(--panel);
+  border: 1.5px dashed var(--border);
+  border-radius: var(--r);
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  overflow: hidden;
+}
+
+.drop-zone:hover,
+.drop-zone.over { border-color: var(--accent); background: rgba(200,245,90,0.03); }
+
+.drop-zone.ready { border-style: solid; border-color: var(--success); }
+
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  font-size: 0;
+}
+
+.drop-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+  display: block;
+  opacity: 0.6;
+}
+
+.drop-hint { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.drop-hint strong { display: block; color: var(--text); font-size: 13px; margin-bottom: 4px; }
+
+.file-badge {
+  display: none;
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--success);
+  letter-spacing: 0.04em;
+}
+
+/* ── Divider ── */
+.or-line {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.or-line::before, .or-line::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── Text input ── */
+textarea {
+  width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.7;
+  padding: 14px;
+  border-radius: var(--r);
+  resize: vertical;
+  min-height: 150px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+textarea:focus { border-color: var(--accent); }
+textarea::placeholder { color: var(--muted); }
+
+/* ── Actions ── */
+.actions {
+  margin-top: 24px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn-go {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--accent);
+  color: #0c0c0c;
+  border: none;
+  padding: 14px 28px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-go:hover:not(:disabled) {
+  background: #d6f96e;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(200,245,90,0.18);
+}
+
+.btn-go:active:not(:disabled) { transform: translateY(0); }
+.btn-go:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-go .spin {
+  width: 13px; height: 13px;
+  border: 2px solid rgba(0,0,0,0.2);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  display: none;
+}
+
+.btn-go.loading .spin { display: block; }
+.btn-go.loading .lbl { display: none; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.btn-ghost {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-ghost:hover { border-color: var(--muted); color: var(--text); }
+
+/* ── Result ── */
+#result {
+  display: none;
+  margin-top: 32px;
+  animation: up 0.25s ease;
+}
+
+@keyframes up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.result-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status.ok  { color: var(--success); }
+.status.err { color: var(--error); }
+
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.result-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn-dl {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: var(--accent2);
+  color: #fff;
+  border: none;
+  padding: 9px 16px;
+  border-radius: var(--r);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-dl:hover { background: #ff7a56; transform: translateY(-1px); }
+
+.btn-cp {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 9px 16px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.btn-cp:hover { border-color: var(--muted); color: var(--text); }
+
+.preview {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px;
+  max-height: 440px;
+  overflow-y: auto;
+}
+
+.preview pre {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text);
+}
+
+.binary-msg {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+  padding: 28px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.binary-msg .ico { font-size: 44px; opacity: 0.6; }
+
+/* ── Matrix footer ── */
+.matrix {
+  margin-top: 48px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+}
+
+.matrix-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.matrix-item {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: 0.04em;
+}
+
+.matrix-item .arr { color: var(--accent); }
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--error);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 12px 18px;
+  border-radius: var(--r);
+  z-index: 99;
+  max-width: 320px;
+  transform: translateY(60px);
+  opacity: 0;
+  transition: all 0.25s ease;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+
+#toast.on { transform: translateY(0); opacity: 1; }
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media (max-width: 560px) {
+  .format-row { grid-template-columns: 1fr; }
+  .arrow-col { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="brand-sub">Format Converter</div>
+      <div class="brand-name">FILE<em>CONV</em></div>
+    </div>
+    <div class="chip">MD · TXT · PDF · DOCX</div>
+  </header>
+
+  <!-- Format selection -->
+  <div class="format-row">
+    <div>
+      <div class="field-label">From</div>
+      <div class="sel-wrap">
+        <select id="src">
+          <option value="markdown">Markdown (.md)</option>
+          <option value="txt">Plain Text (.txt)</option>
+          <option value="pdf">PDF (.pdf)</option>
+          <option value="docx">Word (.docx)</option>
+        </select>
+      </div>
+    </div>
+    <div class="arrow-col">→</div>
+    <div>
+      <div class="field-label">To</div>
+      <div class="sel-wrap">
+        <select id="tgt"></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- File upload -->
+  <div class="upload-area">
+    <div class="field-label" style="margin-top:22px">Upload File</div>
+    <div class="drop-zone" id="dropzone">
+      <input type="file" id="fileinput" accept=".md,.txt,.pdf,.docx" />
+      <span class="drop-icon">⬆</span>
+      <div class="drop-hint">
+        <strong>Drop file here or click to browse</strong>
+        .md · .txt · .pdf · .docx — max 10 MB
+      </div>
+      <div class="file-badge" id="filebadge"></div>
+    </div>
+
+    <div class="or-line">or paste text</div>
+
+    <div>
+      <div class="field-label">Text Input</div>
+      <textarea id="textinput" placeholder="Paste your content here..."></textarea>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-go" id="btngo">
+      <div class="spin"></div>
+      <span class="lbl">⚡ Convert</span>
+    </button>
+    <button class="btn-ghost" id="btnclear">✕ Clear</button>
+  </div>
+
+  <!-- Result -->
+  <div id="result">
+    <div class="result-bar">
+      <div class="status ok" id="statusel">
+        <div class="dot"></div>
+        <span id="statustext">Done</span>
+      </div>
+      <div class="result-btns" id="resultbtns"></div>
+    </div>
+    <div class="preview" id="previewbox"></div>
+  </div>
+
+  <!-- Supported pairs -->
+  <div class="matrix">
+    <div class="field-label">Supported conversions</div>
+    <div class="matrix-grid">
+      <div class="matrix-item">MD <span class="arr">→</span> TXT</div>
+      <div class="matrix-item">MD <span class="arr">→</span> PDF</div>
+      <div class="matrix-item">MD <span class="arr">→</span> DOCX</div>
+      <div class="matrix-item">TXT <span class="arr">→</span> MD</div>
+      <div class="matrix-item">PDF <span class="arr">→</span> MD</div>
+      <div class="matrix-item">DOCX <span class="arr">→</span> MD</div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function () {
+  const VALID = {
+    markdown: ['txt', 'pdf', 'docx'],
+    txt:      ['markdown'],
+    pdf:      ['markdown'],
+    docx:     ['markdown'],
+  };
+
+  const LABELS = {
+    txt: 'Plain Text (.txt)',
+    pdf: 'PDF (.pdf)',
+    docx: 'Word (.docx)',
+    markdown: 'Markdown (.md)',
+  };
+
+  const EXT_MAP = { md: 'markdown', txt: 'txt', pdf: 'pdf', docx: 'docx' };
+
+  const srcSel    = document.getElementById('src');
+  const tgtSel    = document.getElementById('tgt');
+  const fileinput = document.getElementById('fileinput');
+  const dropzone  = document.getElementById('dropzone');
+  const filebadge = document.getElementById('filebadge');
+  const textinput = document.getElementById('textinput');
+  const btngo     = document.getElementById('btngo');
+  const btnclear  = document.getElementById('btnclear');
+  const resultEl  = document.getElementById('result');
+  const statusEl  = document.getElementById('statusel');
+  const statusTxt = document.getElementById('statustext');
+  const resultBtns= document.getElementById('resultbtns');
+  const previewBox= document.getElementById('previewbox');
+  const toast     = document.getElementById('toast');
+
+  let toastTimer;
+
+  function showToast(msg) {
+    clearTimeout(toastTimer);
+    toast.textContent = msg;
+    toast.classList.add('on');
+    toastTimer = setTimeout(() => toast.classList.remove('on'), 4500);
+  }
+
+  function updateTargets() {
+    const src = srcSel.value;
+    const prev = tgtSel.value;
+    tgtSel.innerHTML = '';
+    (VALID[src] || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v;
+      o.textContent = LABELS[v];
+      if (v === prev) o.selected = true;
+      tgtSel.appendChild(o);
+    });
+  }
+
+  srcSel.addEventListener('change', updateTargets);
+  updateTargets();
+
+  // Drag & drop
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('over');
+    const f = e.dataTransfer.files[0];
+    if (f) assignFile(f);
+  });
+
+  fileinput.addEventListener('change', () => {
+    if (fileinput.files[0]) assignFile(fileinput.files[0]);
+  });
+
+  function assignFile(f) {
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (EXT_MAP[ext]) {
+      srcSel.value = EXT_MAP[ext];
+      updateTargets();
+    }
+    filebadge.textContent = '📎 ' + f.name;
+    filebadge.style.display = 'block';
+    dropzone.classList.add('ready');
+  }
+
+  btnclear.addEventListener('click', () => {
+    fileinput.value = '';
+    filebadge.style.display = 'none';
+    dropzone.classList.remove('ready');
+    textinput.value = '';
+    resultEl.style.display = 'none';
+  });
+
+  // ── PDF client-side generation ─────────────────────────────────────────
+  async function htmlToPdfBlob(html) {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 40;
+    const maxWidth = pageWidth - margin * 2;
+    const maxHeight = pageHeight - margin * 2;
+
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = `
+      width: ${maxWidth}px;
+      font-family: Helvetica, Arial, sans-serif;
+      font-size: 10px;
+      line-height: 1.4;
+      color: #000;
+      padding: 0;
+    `;
+    tempDiv.innerHTML = html;
+    document.body.appendChild(tempDiv);
+
+    const text = tempDiv.innerText || tempDiv.textContent;
+    document.body.removeChild(tempDiv);
+
+    const lines = pdf.splitTextToSize(text, maxWidth);
+    let cursorY = margin;
+
+    for (const line of lines) {
+      if (cursorY + 12 > pageHeight - margin) {
+        pdf.addPage();
+        cursorY = margin;
+      }
+      pdf.text(line, margin, cursorY);
+      cursorY += 14;
+    }
+
+    return pdf.output('blob');
+  }
+
+  // ── Main convert ──────────────────────────────────────────────────────────
+  btngo.addEventListener('click', async () => {
+    const src = srcSel.value;
+    const tgt = tgtSel.value;
+    const hasFile = fileinput.files.length > 0;
+    const hasText = textinput.value.trim().length > 0;
+
+    if (!hasFile && !hasText) {
+      showToast('Upload a file or paste text first.');
+      return;
+    }
+
+    btngo.classList.add('loading');
+    btngo.disabled = true;
+    resultEl.style.display = 'none';
+
+    try {
+      const form = new FormData();
+      form.append('source_format', src);
+      form.append('target_format', tgt);
+      if (hasFile) form.append('file', fileinput.files[0]);
+      if (hasText) form.append('text_input', textinput.value.trim());
+
+      const res  = await fetch('/api/convert', { method: 'POST', body: form });
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Conversion failed.');
+
+      // ── Build download blob ──────────────────────────────────────────────
+      let blob, mimeType, filename;
+
+      if (data.resultType === 'html-for-pdf') {
+        // Client-side PDF render
+        const html = atob(data.resultData);
+        blob = await htmlToPdfBlob(html);
+        mimeType = 'application/pdf';
+        filename = data.filename;
+      } else if (data.resultType === 'binary') {
+        const bytes = Uint8Array.from(atob(data.resultData), c => c.charCodeAt(0));
+        const mimes = {
+          'converted.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        };
+        mimeType = mimes[data.filename] || 'application/octet-stream';
+        blob = new Blob([bytes], { type: mimeType });
+        filename = data.filename;
+      } else {
+        // text
+        const text = atob(data.resultData);
+        const mimes = {
+          'converted.txt': 'text/plain',
+          'converted.md':  'text/markdown',
+        };
+        mimeType = mimes[data.filename] || 'text/plain';
+        blob = new Blob([text], { type: mimeType });
+        filename = data.filename;
+      }
+
+      // ── UI: status + download btn ─────────────────────────────────────────
+      statusEl.className = 'status ok';
+      statusTxt.textContent = `✓ Converted to ${tgt.toUpperCase()}`;
+
+      resultBtns.innerHTML = '';
+
+      // Download button
+      const url = URL.createObjectURL(blob);
+      const dl = document.createElement('a');
+      dl.href = url;
+      dl.download = filename;
+      dl.className = 'btn-dl';
+      dl.textContent = `↓ ${filename}`;
+      dl.addEventListener('click', () => setTimeout(() => URL.revokeObjectURL(url), 10000));
+      resultBtns.appendChild(dl);
+
+      // Copy button (text only)
+      if (data.previewText) {
+        const cp = document.createElement('button');
+        cp.className = 'btn-cp';
+        cp.textContent = '⎘ Copy';
+        cp.addEventListener('click', () => {
+          navigator.clipboard.writeText(data.previewText).then(() => {
+            cp.textContent = '✓ Copied';
+            setTimeout(() => { cp.textContent = '⎘ Copy'; }, 2000);
+          });
+        });
+        resultBtns.appendChild(cp);
+      }
+
+      // Preview
+      previewBox.innerHTML = '';
+      if (data.previewText) {
+        const pre = document.createElement('pre');
+        pre.textContent = data.previewText;
+        previewBox.appendChild(pre);
+      } else {
+        const icons = { 'converted.pdf': '📄', 'converted.docx': '📝' };
+        previewBox.innerHTML = `
+          <div class="binary-msg">
+            <span class="ico">${icons[filename] || '📁'}</span>
+            <span>${filename} ready for download</span>
+            <span style="font-size:10px;opacity:0.5">Binary file — click the download button above</span>
+          </div>`;
+      }
+
+      resultEl.style.display = 'block';
+      resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    } catch (err) {
+      showToast(err.message);
+    } finally {
+      btngo.classList.remove('loading');
+      btngo.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
