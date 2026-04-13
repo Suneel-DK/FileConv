@@ -35,8 +35,8 @@ const CONVERSIONS = {
   'markdown:pdf': (input) => ({ type: 'html', data: markdownToHtmlForPdf(input), file: 'converted.pdf', preview: null }),
   'markdown:docx': async (input) => ({ type: 'binary', data: await markdownToDocx(input), file: 'converted.docx', preview: null }),
   'txt:markdown': (input) => ({ type: 'text', data: txtToMarkdown(input), file: 'converted.md', preview: txtToMarkdown(input) }),
-  'pdf:markdown': async (input) => ({ type: 'text', data: await pdfToMarkdown(input), file: 'converted.md', preview: await pdfToMarkdown(input) }),
-  'docx:markdown': async (input) => ({ type: 'text', data: await docxToMarkdown(input), file: 'converted.md', preview: await docxToMarkdown(input) }),
+  'pdf:markdown': async (_, buffer) => ({ type: 'text', data: await pdfToMarkdown(buffer), file: 'converted.md', preview: await pdfToMarkdown(buffer) }),
+  'docx:markdown': async (_, buffer) => ({ type: 'text', data: await docxToMarkdown(buffer), file: 'converted.md', preview: await docxToMarkdown(buffer) }),
 };
 
 module.exports = async function handler(req, res) {
@@ -70,7 +70,7 @@ module.exports = async function handler(req, res) {
       inputText = fileBuffer.toString('utf-8');
     }
 
-    const result = await CONVERSIONS[pairKey](inputText);
+    const result = await CONVERSIONS[pairKey](inputText, fileBuffer);
 
     res.status(200).json({
       ok: true,

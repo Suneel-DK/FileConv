@@ -2,7 +2,7 @@
 
 Convert between Markdown, TXT, PDF, and DOCX files. Serverless, no database, no build step.
 
-**Live:** https://file-conv.vercel.app
+**Live:** https://fileconv.suneeldk.in
 
 ## Features
 
